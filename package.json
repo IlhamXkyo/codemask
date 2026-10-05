@@ -1,0 +1,28 @@
+{
+  "name": "codemask",
+  "version": "1.0.0",
+  "description": "Zero-dependency CLI for bidirectional, syntax-preserving secret masking in LLM code workflows.",
+  "main": "lib/index.js",
+  "type": "module",
+  "bin": {
+    "codemask": "./bin/codemask.js"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node ./bin/codemask.js"
+  },
+  "keywords": [
+    "llm-security",
+    "secret-masking",
+    "redaction",
+    "developer-tools",
+    "ai-agent",
+    "privacy",
+    "cli"
+  ],
+  "author": "IlhamXkyo",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

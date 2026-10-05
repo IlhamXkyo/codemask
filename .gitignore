@@ -1,0 +1,6 @@
+node_modules/
+.codemask-session.json
+*.session.json
+.tmp*/
+.env
+.DS_Store
