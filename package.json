@@ -1,6 +1,6 @@
 {
   "name": "codemask",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Zero-dependency CLI for bidirectional, syntax-preserving secret masking in LLM code workflows.",
   "main": "lib/index.js",
   "type": "module",

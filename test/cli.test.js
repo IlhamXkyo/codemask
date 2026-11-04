@@ -41,3 +41,58 @@ test('CLI mask and unmask via executable bin', () => {
   // Clean up
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
+
+test('CLI in-place file modification with -i flag', () => {
+  const tmpDir = path.resolve('./test/.tmp_cli_inplace');
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const sessionPath = path.join(tmpDir, 'inplace-session.json');
+  const binPath = path.resolve('./bin/codemask.js');
+
+  const rawContent = 'export const HF_KEY = "hf_0123456789abcdefghijklmnopqrstuvwxyz";';
+  const targetFile = path.join(tmpDir, 'service.ts');
+  fs.writeFileSync(targetFile, rawContent, 'utf8');
+
+  // 1. Mask in place
+  execFileSync('node', [binPath, 'mask', targetFile, '-i', '--session', sessionPath]);
+  const maskedInPlace = fs.readFileSync(targetFile, 'utf8');
+  assert.ok(!maskedInPlace.includes('hf_0123456789'), 'File must be masked in place');
+  assert.ok(maskedInPlace.includes('hf_MASKED_HF_TOKEN_'), 'Placeholder should be present in file');
+
+  // 2. Unmask in place
+  execFileSync('node', [binPath, 'unmask', targetFile, '-i', '--session', sessionPath]);
+  const restoredInPlace = fs.readFileSync(targetFile, 'utf8');
+  assert.strictEqual(restoredInPlace, rawContent, 'File content must be fully restored');
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});
+
+test('CLI scan command returns zero for clean code and non-zero for leaked secrets', () => {
+  const tmpDir = path.resolve('./test/.tmp_cli_scan');
+  fs.mkdirSync(tmpDir, { recursive: true });
+
+  const binPath = path.resolve('./bin/codemask.js');
+
+  // Clean file
+  const cleanFile = path.join(tmpDir, 'clean.js');
+  fs.writeFileSync(cleanFile, 'const count = 42; console.log(count);', 'utf8');
+
+  const cleanOut = execFileSync('node', [binPath, 'scan', cleanFile], { encoding: 'utf8' });
+  assert.ok(cleanOut.includes('Clean: No unmasked secrets detected'));
+
+  // Leaked file
+  const leakedFile = path.join(tmpDir, 'leaked.js');
+  fs.writeFileSync(leakedFile, 'const key = "sk-proj-abc123def456ghi789jkl012mno345pqr678stu901vwx";', 'utf8');
+
+  let failed = false;
+  try {
+    execFileSync('node', [binPath, 'scan', leakedFile], { encoding: 'utf8', stdio: 'pipe' });
+  } catch (err) {
+    failed = true;
+    assert.strictEqual(err.status, 1, 'Should exit with code 1');
+    assert.ok(err.stderr.toString().includes('Alert: Found 1 unmasked secret(s)'));
+  }
+  assert.ok(failed, 'Scan on leaked secret file must exit with error code 1');
+
+  fs.rmSync(tmpDir, { recursive: true, force: true });
+});

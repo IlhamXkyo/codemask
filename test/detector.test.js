@@ -21,11 +21,35 @@ test('detects OpenAI API keys and Project keys', () => {
   assert.strictEqual(findings[1].ruleId, 'openai_api_key');
 });
 
-test('detects GitHub Personal Access Tokens', () => {
-  const sample = `const token = "ghp_1234567890abcdefghijklmnopqrstuvwxyz";`;
+test('detects GitHub Personal Access Tokens and Fine-Grained PATs', () => {
+  const sample = `
+    const classicToken = "ghp_1234567890abcdefghijklmnopqrstuvwxyz";
+    const fineGrainedToken = "github_pat_11AAAAAAA0123456789012_abcdefghijklmnopqrstuvwxyz01234567890123456789012345678901234";
+  `;
+  const findings = scanForSecrets(sample);
+  assert.strictEqual(findings.length, 2);
+  assert.ok(findings.some(f => f.ruleId === 'github_token'));
+  assert.ok(findings.some(f => f.ruleId === 'github_fine_grained_pat'));
+});
+
+test('detects HuggingFace, npm, and GitLab tokens', () => {
+  const sample = `
+    const hf = "hf_0123456789abcdefghijklmnopqrstuvwxyz";
+    const npmToken = "npm_0123456789abcdefghijklmnopqrstuv";
+    const gitlabToken = "glpat-0123456789abcdefghij";
+  `;
+  const findings = scanForSecrets(sample);
+  assert.strictEqual(findings.length, 3);
+  assert.ok(findings.some(f => f.ruleId === 'huggingface_token'));
+  assert.ok(findings.some(f => f.ruleId === 'npm_token'));
+  assert.ok(findings.some(f => f.ruleId === 'gitlab_pat'));
+});
+
+test('detects raw JSON Web Tokens (JWT)', () => {
+  const sample = `const sessionToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c";`;
   const findings = scanForSecrets(sample);
   assert.strictEqual(findings.length, 1);
-  assert.strictEqual(findings[0].ruleId, 'github_token');
+  assert.strictEqual(findings[0].ruleId, 'jwt_token');
 });
 
 test('detects AWS Access Keys', () => {
@@ -53,15 +77,18 @@ MIIEowIBAAKCAQEA0Y1+xyz...fakecontent...==
   assert.strictEqual(findings[0].ruleId, 'private_key_block');
 });
 
-test('detects Windows and Unix developer user paths', () => {
+test('detects Windows and Unix developer user paths without re-masking masked tokens', () => {
   const sample = `
     const winPath = "C:\\\\Users\\\\johndoe\\\\workspace\\\\secret-project";
     const unixPath = "/home/developer/workspace/app.env";
+    const alreadyMaskedWin = "C:\\\\Users\\\\MASKED_DEV_USER_a1b2c3d4\\\\file.ts";
+    const alreadyMaskedUnix = "/home/MASKED_dev_user_a1b2c3d4/file.ts";
   `;
   const findings = scanForSecrets(sample);
   const winFinding = findings.find(f => f.ruleId === 'local_user_path_win');
   const unixFinding = findings.find(f => f.ruleId === 'local_user_path_unix');
 
-  assert.ok(winFinding, 'Should detect Windows user path');
-  assert.ok(unixFinding, 'Should detect Unix home path');
+  assert.ok(winFinding, 'Should detect unmasked Windows user path');
+  assert.ok(unixFinding, 'Should detect unmasked Unix home path');
+  assert.strictEqual(findings.length, 2, 'Should not match already-masked user paths');
 });
